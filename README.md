@@ -335,7 +335,7 @@ I'm a  DevOps/MLOps engineer interested in LLM fine-tuning, inference optimizati
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://linkedin.com/in/manupanand)
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/manupanand)
-[![HuggingFace](https://img.shields.io/badge/HuggingFace-Profile-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](https://huggingface.co/your-profile)
+[![HuggingFace](https://img.shields.io/badge/HuggingFace-Profile-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](https://huggingface.co/manupanand)
 
 ---
 
