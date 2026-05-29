@@ -1,0 +1,56 @@
+version: "3.9"
+
+# ─── Dev (Vite HMR — UI only) ────────────────────────────────────────
+# docker compose up dev
+# UI: http://localhost:3000/agent/view/finetune-llm
+#
+# ─── Prod (Rust binary serves built dist) ────────────────────────────
+# docker compose --profile prod up prod
+# UI: http://localhost:8000/agent/view/finetune-llm
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Dev: Vite HMR (no Rust, instant reload) ─────────────────────
+  dev:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+    profiles: ["dev", "default"]
+
+  # ── Prod: multi-stage build → Rust binary serves everything ─────
+  prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    ports:
+      - "4096:4096"
+
+    # Option A — load from a .env file on the host (recommended for local prod)
+    env_file:
+      - server/.env
+
+    # Option B — override individual vars (CI/CD, Kubernetes, etc.)
+    # These take priority over env_file values.
+    environment:
+      PORT: "4096"
+      DIST_DIR: "./dist"
+      # DATABASE_URL: set in env_file or inject from CI secret
+      # LLM_ENDPOINT: set in env_file or inject from CI secret
+      # HF_TOKEN:     set in env_file or inject from CI secret
+      RUST_LOG: "info,lora_studio_server=debug"
+
+    restart: unless-stopped
+    profiles: ["prod"]
+
+    # Uncomment to mount model weights from host (avoids re-downloading)
+    # volumes:
+    #   - ./models:/app/models
