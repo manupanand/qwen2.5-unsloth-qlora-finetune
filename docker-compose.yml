@@ -20,13 +20,13 @@ services:
   # ── Dev: Vite HMR only ────────────────────────────────────────────
   dev:
     image: node:20-alpine
-    container_name: lora-ui-dev
+    container_name: finetune-ui-dev
     working_dir: /app
     command: sh -c "npm install && npm run dev"
     ports:
       - "3000:3000"
     volumes:
-      - ./ui:/app
+      - ./UI:/app
       - /app/node_modules
     environment:
       NODE_ENV: development
@@ -41,7 +41,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: final
-    container_name: lora-server
+    container_name: llm-finetune-server
     ports:
       - "8000:8000"
     env_file:

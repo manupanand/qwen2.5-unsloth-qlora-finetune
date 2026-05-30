@@ -41,3 +41,9 @@ docker ps
 
 # Step 2 — run init containers (separate command, profile init only)
 docker compose -f infra-docker-compose.yml --env-file infra.env --profile init up --abort-on-container-exit
+
+#-- backend
+docker compose --profile dev up
+
+# Prod →
+docker compose --profile prod up
