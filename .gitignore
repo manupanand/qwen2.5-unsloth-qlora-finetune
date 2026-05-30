@@ -3,7 +3,24 @@ UI/node_modules
 __pycache__/
 *.py[codz]
 *$py.class
+# Dependencies
+ui/node_modules/
 
+# Build output
+ui/dist/
+server/target/
+
+# Secrets — NEVER commit these
+infra.env
+server.env
+
+# Keep templates
+!infra.env.example
+!server.env.example
+
+# OS
+.DS_Store
+*.swp
 # C extensions
 *.so
 

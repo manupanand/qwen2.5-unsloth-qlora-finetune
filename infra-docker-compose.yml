@@ -1,0 +1,209 @@
+# ─────────────────────────────────────────────────────────────────────
+# Infrastructure docker-compose
+#
+# STEP 1 — start persistent services:
+#   docker compose -f infra-docker-compose.yml --env-file infra.env \
+#     --profile infra up -d
+#
+# STEP 2 — wait until all healthy, then run init:
+#   docker compose -f infra-docker-compose.yml --env-file infra.env \
+#     --profile init up --abort-on-container-exit
+#
+# Recreate from scratch (DESTROYS all data):
+#   docker compose -f infra-docker-compose.yml --env-file infra.env \
+#     --profile infra down -v
+#   then repeat steps 1 and 2
+# ─────────────────────────────────────────────────────────────────────
+
+networks:
+  shared-net:
+    external: true
+
+volumes:
+  edge_pgdata:
+  redis_data:
+  qdrant_data:
+  minio_data:
+
+services:
+  # ── PERSISTENT SERVICES  (--profile infra) ────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: edge-db
+    env_file: infra.env
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+    ports:
+      - "5432:5432"
+    volumes:
+      - edge_pgdata:/var/lib/postgresql/data
+    networks:
+      - shared-net
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h localhost",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    profiles: ["infra"]
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: lora-redis
+    entrypoint: >
+      sh -c "redis-server
+      --requirepass $$REDIS_PASSWORD
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --notify-keyspace-events KEA"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    env_file: infra.env
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    networks:
+      - shared-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    profiles: ["infra"]
+
+  qdrant:
+    image: qdrant/qdrant:v1.9.2
+    container_name: lora-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    env_file: infra.env
+    environment:
+      QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY}"
+      QDRANT__LOG_LEVEL: INFO
+    networks:
+      - shared-net
+    restart: unless-stopped
+    healthcheck:
+      # nc (netcat) checks TCP port — available in all alpine/busybox images
+      # qdrant logs show it is listening on 6333, so TCP check is sufficient
+      test: ["CMD-SHELL", "nc -z localhost 6333 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    profiles: ["infra"]
+
+  minio:
+    image: minio/minio:RELEASE.2024-06-13T22-53-53Z
+    container_name: lora-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    env_file: infra.env
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+    networks:
+      - shared-net
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:9000/minio/health/live || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    profiles: ["infra"]
+
+  # ── INIT CONTAINERS  (--profile init) ─────────────────────────────────
+
+  postgres-init:
+    build:
+      context: ./postgres-init
+      dockerfile: Dockerfile
+    container_name: lora-postgres-init
+    env_file: infra.env
+    environment:
+      PG_HOST: "${PG_HOST}"
+      PG_PORT: "${PG_PORT}"
+      PG_SUPERUSER: "${PG_SUPERUSER}"
+      PG_SUPERUSER_PASS: "${PG_SUPERUSER_PASS}"
+      LORA_DB_NAME: "${LORA_DB_NAME}"
+      LORA_DB_USER: "${LORA_DB_USER}"
+      LORA_DB_PASS: "${LORA_DB_PASS}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+    networks:
+      - shared-net
+    restart: "no"
+    profiles: ["init"]
+
+  redis-init:
+    build:
+      context: ./redis-init
+      dockerfile: Dockerfile
+    container_name: lora-redis-init
+    env_file: infra.env
+    environment:
+      REDIS_HOST: lora-redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    networks:
+      - shared-net
+    restart: "no"
+    profiles: ["init"]
+
+  qdrant-init:
+    build:
+      context: ./qdrant-init
+      dockerfile: Dockerfile
+    container_name: lora-qdrant-init
+    env_file: infra.env
+    environment:
+      QDRANT_HOST: lora-qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_API_KEY: "${QDRANT_API_KEY}"
+    networks:
+      - shared-net
+    restart: "no"
+    profiles: ["init"]
+
+  minio-init:
+    build:
+      context: ./minio-init
+      dockerfile: Dockerfile
+    container_name: lora-minio-init
+    env_file: infra.env
+    environment:
+      MINIO_ENDPOINT: http://lora-minio:9000
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+      BUCKET_DATASETS: "${MINIO_BUCKET_DATASETS}"
+      BUCKET_CHECKPOINTS: "${MINIO_BUCKET_CHECKPOINTS}"
+      BUCKET_ADAPTERS: "${MINIO_BUCKET_ADAPTERS}"
+      BUCKET_EXPORTS: "${MINIO_BUCKET_EXPORTS}"
+    networks:
+      - shared-net
+    restart: "no"
+    profiles: ["init"]
