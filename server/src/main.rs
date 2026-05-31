@@ -1,135 +1,135 @@
-mod config;
+//! Application config — loaded once at startup from .env + real env vars.
+//!
+//! Priority (highest → lowest):
+//!   1. Real environment variables  (set in shell / docker-compose env:)
+//!   2. .env file values            (loaded by dotenvy)
+//!   3. Default values in this file
 
-use axum::{
-    Router,
-    routing::get,
-    response::{Html, IntoResponse, Response},
-    http::StatusCode,
-    extract::State,
-};
-use std::{net::SocketAddr, sync::Arc};
-use tower_http::{
-    services::ServeDir,
-    cors::{CorsLayer, Any, AllowOrigin},
-    trace::TraceLayer,
-};
-use tracing::info;
-use tokio::fs;
+use std::env;
 
-use config::Config;
+/// All runtime configuration for the server.
+/// Add a new field here + a matching line in `from_env()` whenever you
+/// need a new endpoint, key, or flag.
+#[derive(Debug, Clone)]
+pub struct Config {
+    // ── Server ────────────────────────────────────────────────────
+    /// TCP port the Axum server binds to
+    pub port: u16,
 
-/// Shared application state — cloned cheaply into every handler via Arc
-#[derive(Clone)]
-struct AppState {
-    cfg: Arc<Config>,
+    /// Filesystem path where the React dist folder lives
+    /// (relative to the binary's working directory)
+    pub dist_dir: String,
+
+    // ── Database ──────────────────────────────────────────────────
+    /// Full connection string, e.g. postgres://user:pass@host/db
+    pub database_url: String,
+
+    // ── LLM / Model endpoints ─────────────────────────────────────
+    /// Base URL of the LLM inference server (Candle / llama.cpp / vLLM)
+    pub llm_endpoint: String,
+
+    /// Optional HuggingFace token for gated model downloads
+    pub hf_token: Option<String>,
+
+    // ── Object storage (model weights + adapters) ─────────────────
+    /// Where to store / load base model weights and LoRA adapters
+    pub model_storage_path: String,
+
+    // ── CORS ──────────────────────────────────────────────────────
+    /// Comma-separated allowed origins, or "*" for any
+    pub cors_origins: String,
+
+    // ── Logging ───────────────────────────────────────────────────
+    pub rust_log: String,
 }
 
-#[tokio::main]
-async fn main() {
-    // 1. Load .env file (silently ignored if missing — real env vars take over)
-    dotenvy::dotenv().ok();
+impl Config {
+    /// Load config from environment (after dotenvy has ingested .env).
+    /// Panics on startup if a required variable is missing so you know
+    /// immediately rather than failing silently at runtime.
+    pub fn from_env() -> Self {
+        Self {
+            // ── Server ────────────────────────────────────────────
+            port: env_u16("PORT", 8000),
+            dist_dir: env_str("DIST_DIR", "./dist"),
 
-    // 2. Parse and validate config
-    let cfg = Arc::new(Config::from_env());
+            // ── Database ──────────────────────────────────────────
+            database_url: env_required("DATABASE_URL"),
 
-    // 3. Init tracing (must happen after config so we pick up RUST_LOG)
-    tracing_subscriber::fmt()
-        .with_env_filter(&cfg.rust_log)
-        .init();
+            // ── LLM ───────────────────────────────────────────────
+            llm_endpoint: env_str("LLM_ENDPOINT", "http://localhost:11434"),
+            hf_token: env_optional("HF_TOKEN"),
 
-    // 4. Log what we loaded
-    cfg.log_summary();
+            // ── Storage ───────────────────────────────────────────
+            model_storage_path: env_str("MODEL_STORAGE_PATH", "./models"),
 
-    // 5. Build router
-    let state = AppState { cfg: cfg.clone() };
-    let app = build_router(state);
+            // ── CORS ──────────────────────────────────────────────
+            cors_origins: env_str("CORS_ORIGINS", "*"),
 
-    // 6. Bind and serve
-    let addr = SocketAddr::from(([0, 0, 0, 0], cfg.port));
-    info!("Listening on http://{}", addr);
-    info!("UI → http://{}/agent/view/finetune-llm", addr);
+            // ── Logging ───────────────────────────────────────────
+            rust_log: env_str("RUST_LOG", "info,finetune_studio_server=debug"),
+        }
+    }
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
-}
-
-fn build_router(state: AppState) -> Router {
-    let cfg = &state.cfg;
-    let ui_base = "/agent/view/finetune-llm";
-    let assets_path = format!("{}/assets", cfg.dist_dir);
-
-    // CORS
-    let cors = if cfg.cors_origins == "*" {
-        CorsLayer::new()
-            .allow_origin(Any)
-            .allow_methods(Any)
-            .allow_headers(Any)
-    } else {
-        let origins: Vec<_> = cfg.cors_origins
-            .split(',')
-            .filter_map(|o| o.trim().parse().ok())
-            .collect();
-        CorsLayer::new()
-            .allow_origin(AllowOrigin::list(origins))
-            .allow_methods(Any)
-            .allow_headers(Any)
-    };
-
-    Router::new()
-        // ── Health ────────────────────────────────────────────────
-        .route("/health", get(health_handler))
-
-        // ── API stubs (Phase 2: real LoRA training via Candle) ────
-        .route("/api/v1/jobs",             get(api_placeholder))
-        .route("/api/v1/jobs/:id",         get(api_placeholder))
-        .route("/api/v1/jobs/:id/stream",  get(api_placeholder))
-        .route("/api/v1/models",           get(api_placeholder))
-
-        // ── UI static assets ──────────────────────────────────────
-        .nest_service(
-            &format!("{}/assets", ui_base),
-            ServeDir::new(assets_path),
-        )
-
-        // ── UI SPA routes (all fall back to index.html) ───────────
-        .route(ui_base,                   get(spa_handler))
-        .route(&format!("{}/*path", ui_base), get(spa_handler))
-
-        // ── Root redirect → UI ────────────────────────────────────
-        .route("/", get(|| async {
-            axum::response::Redirect::permanent("/agent/view/finetune-llm")
-        }))
-
-        .with_state(state)
-        .layer(cors)
-        .layer(TraceLayer::new_for_http())
-}
-
-/// Serve index.html for all SPA routes
-async fn spa_handler(State(state): State<AppState>) -> Response {
-    let index = format!("{}/index.html", state.cfg.dist_dir);
-    match fs::read_to_string(&index).await {
-        Ok(html) => Html(html).into_response(),
-        Err(_) => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            "UI not built. Run `npm run build` first, or check DIST_DIR.",
-        ).into_response(),
+    /// Pretty-print config at startup (redacts secrets)
+    pub fn log_summary(&self) {
+        tracing::info!("────────────────────────────────────────");
+        tracing::info!("  Finetune Studio — config");
+        tracing::info!("  port             : {}", self.port);
+        tracing::info!("  dist_dir         : {}", self.dist_dir);
+        tracing::info!("  database_url     : {}", redact(&self.database_url));
+        tracing::info!("  llm_endpoint     : {}", self.llm_endpoint);
+        tracing::info!("  hf_token         : {}", if self.hf_token.is_some() { "set" } else { "not set" });
+        tracing::info!("  model_storage    : {}", self.model_storage_path);
+        tracing::info!("  cors_origins     : {}", self.cors_origins);
+        tracing::info!("────────────────────────────────────────");
     }
 }
 
-/// Health check — returns config summary (no secrets)
-async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
-    (StatusCode::OK, axum::Json(serde_json::json!({
-        "status": "ok",
-        "service": "lora-studio",
-        "port": state.cfg.port,
-        "llm_endpoint": state.cfg.llm_endpoint,
-        "model_storage": state.cfg.model_storage_path,
-    })))
+// ── Helpers ──────────────────────────────────────────────────────────
+
+/// Required variable — panics with a clear message if missing
+fn env_required(key: &str) -> String {
+    env::var(key).unwrap_or_else(|_| {
+        panic!(
+            "Required env var `{}` is not set. \
+             Add it to your .env file or set it in the environment.",
+            key
+        )
+    })
 }
 
-async fn api_placeholder() -> impl IntoResponse {
-    (StatusCode::OK, axum::Json(serde_json::json!({
-        "message": "Phase 2: LoRA training API — coming soon",
-    })))
+/// Optional variable — returns None if not set
+fn env_optional(key: &str) -> Option<String> {
+    env::var(key).ok()
+}
+
+/// String with a default
+fn env_str(key: &str, default: &str) -> String {
+    env::var(key).unwrap_or_else(|_| default.to_string())
+}
+
+/// u16 with a default, panics if value isn't a valid port number
+fn env_u16(key: &str, default: u16) -> u16 {
+    match env::var(key) {
+        Ok(val) => val.parse::<u16>().unwrap_or_else(|_| {
+            panic!("`{}` must be a valid port number (0-65535), got: {}", key, val)
+        }),
+        Err(_) => default,
+    }
+}
+
+/// Redact passwords in URLs for logging: postgres://user:REDACTED@host/db
+fn redact(url: &str) -> String {
+    if let Some(at) = url.rfind('@') {
+        if let Some(scheme_end) = url.find("://") {
+            let scheme = &url[..scheme_end + 3];
+            let host_part = &url[at..];
+            // find user between :// and the first : or @
+            let creds = &url[scheme_end + 3..at];
+            let user = creds.split(':').next().unwrap_or(creds);
+            return format!("{}{}:REDACTED{}", scheme, user, host_part);
+        }
+    }
+    url.to_string()
 }

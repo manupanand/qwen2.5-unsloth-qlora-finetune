@@ -11,7 +11,7 @@ import {
   Shield,
 } from "lucide-react";
 
-export default function Header({ theme, onToggleTheme }) {
+export default function Header({ theme, onToggleTheme, user, onSignOut }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -170,7 +170,7 @@ export default function Header({ theme, onToggleTheme }) {
               }}
             >
               <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>
-                AJ
+                {user ? user.name.slice(0, 2).toUpperCase() : "U"}
               </span>
             </div>
             <div style={{ textAlign: "left" }}>
@@ -182,10 +182,10 @@ export default function Header({ theme, onToggleTheme }) {
                   lineHeight: 1.2,
                 }}
               >
-                Alex J.
+                {user ? user.name : "User"}
               </div>
               <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                Admin
+                Member
               </div>
             </div>
             <ChevronDown
@@ -228,10 +228,10 @@ export default function Header({ theme, onToggleTheme }) {
                     color: "var(--text-primary)",
                   }}
                 >
-                  Alex Johnson
+                  {user ? user.name : "User"}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                  alex@company.com
+                  {user ? user.email : ""}
                 </div>
               </div>
 
@@ -247,7 +247,12 @@ export default function Header({ theme, onToggleTheme }) {
                     margin: "4px 0",
                   }}
                 />
-                <DropdownItem icon={LogOut} label="Sign out" danger />
+                <DropdownItem
+                  icon={LogOut}
+                  label="Sign out"
+                  danger
+                  onClick={onSignOut}
+                />
               </div>
             </div>
           )}
@@ -289,9 +294,10 @@ function HeaderIconBtn({ children, title }) {
   );
 }
 
-function DropdownItem({ icon: Icon, label, danger }) {
+function DropdownItem({ icon: Icon, label, danger, onClick }) {
   return (
     <button
+      onClick={onClick}
       style={{
         width: "100%",
         display: "flex",

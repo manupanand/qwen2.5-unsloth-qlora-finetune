@@ -42,8 +42,12 @@ docker ps
 # Step 2 — run init containers (separate command, profile init only)
 docker compose -f infra-docker-compose.yml --env-file infra.env --profile init up --abort-on-container-exit
 
-#-- backend
+# Dev — starts both Vite and Rust API
 docker compose --profile dev up
 
-# Prod →
+# UI:  http://localhost:3000/agent/view/finetune-llm/auth
+# API: http://localhost:8000/health  (direct debug access)
+
+# Prod — single container
 docker compose --profile prod up
+# UI + API: http://localhost:8000/agent/view/finetune-llm/auth
