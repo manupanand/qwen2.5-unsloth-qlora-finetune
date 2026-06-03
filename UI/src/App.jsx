@@ -11,7 +11,7 @@ import EvalPage from "./pages/EvalPage.jsx";
 const BASE = "/agent/view/finetune-llm";
 
 // ── Studio (protected) ────────────────────────────────────────────────
-function Studio({ user, onSignOut, theme, onToggleTheme }) {
+function Studio({ user, onSignOut, theme, onToggleTheme, authHeader }) {
   const [page, setPage] = useState("dataset");
   const [job, setJob] = useState({
     dataset: null,
@@ -89,7 +89,17 @@ export default function App() {
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const handleAuth = (userData) => setUser(userData);
-  const handleSignOut = () => setUser(null);
+  const handleSignOut = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    setUser(null);
+  };
+
+  // Convenience: get auth header for API calls anywhere in the app
+  const authHeader = () => {
+    const token = localStorage.getItem("access_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
 
   return (
     <BrowserRouter basename={BASE}>
@@ -120,6 +130,7 @@ export default function App() {
                 onSignOut={handleSignOut}
                 theme={theme}
                 onToggleTheme={toggleTheme}
+                authHeader={authHeader}
               />
             </Protected>
           }

@@ -81,47 +81,127 @@
 #   Infra services running (infra-docker-compose.yml)
 # ─────────────────────────────────────────────────────────────────────
 
+# networks:
+#   shared-net:
+#     external: true
+
+# services:
+#   # ── DEV: Vite HMR UI ─────────────────────────────────────────────────
+#   dev-ui:
+#     image: node:20-alpine
+#     container_name: lora-ui-dev
+#     working_dir: /app
+#     command: sh -c "npm install && npm run dev"
+#     ports:
+#       - "3000:3000"
+#     volumes:
+#       - ./UI:/app
+#       - /app/node_modules
+#     environment:
+#       NODE_ENV: development
+#       CHOKIDAR_USEPOLLING: "true"
+#     networks:
+#       - shared-net
+#     depends_on:
+#       - dev-api
+#     profiles: ["dev"]
+
+#   # ── DEV: Rust API (no UI dist — just the API server) ─────────────────
+#   dev-api:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#       target: dev-api # Rust binary only, no dist/
+#     container_name: finetune-api-dev
+#     ports:
+#       - "8000:8000" # Direct access for debugging: http://localhost:8000/health
+#     env_file:
+#       - server.env
+#     environment:
+#       PORT: "8000"
+#       DIST_DIR: "./dist" # dist/ won't exist — /api and /health still work
+#       RUST_LOG: "debug,lora_studio_server=trace"
+#       CORS_ORIGINS: "*" # open in dev
+#     networks:
+#       - shared-net
+#     restart: unless-stopped
+#     profiles: ["dev"]
+
+#   # ── PROD: Single binary serves UI + API ──────────────────────────────
+#   prod:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#       target: final # Rust binary + built dist/
+#     container_name: llm-finetune-server
+#     ports:
+#       - "8000:8000"
+#     env_file:
+#       - server.env
+#     environment:
+#       PORT: "8000"
+#       DIST_DIR: "./dist"
+#       RUST_LOG: "info,lora_studio_server=debug"
+#     networks:
+#       - shared-net
+#     restart: unless-stopped
+#     profiles: ["prod"]
+
+# finetune-studio/docker-compose.yml
+# UI + Server (app layer only)
+#
+# Prerequisites:
+#   docker network create shared-net
+#   Infra running: docker compose -f infra-docker-compose.yml --env-file infra.env --profile infra up -d
+#
+# Dev  → docker compose --profile dev up
+#         UI:  http://localhost:3000/agent/view/finetune-llm/auth
+#         API: http://localhost:8000/health
+#
+# Prod → docker compose --profile prod up
+#         UI + API: http://localhost:8000/agent/view/finetune-llm/auth
+
 networks:
   shared-net:
     external: true
 
 services:
-  # ── DEV: Vite HMR UI ─────────────────────────────────────────────────
+  # ── DEV: Vite HMR (hot reload) ───────────────────────────────────────
   dev-ui:
     image: node:20-alpine
-    container_name: lora-ui-dev
+    container_name: finetune-ui-dev
     working_dir: /app
     command: sh -c "npm install && npm run dev"
     ports:
       - "3000:3000"
     volumes:
-      - ./UI:/app
+      - ./UI:/app # lowercase — matches actual folder name
       - /app/node_modules
     environment:
       NODE_ENV: development
-      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_USEPOLLING: "true" # required for file watch inside Docker
     networks:
       - shared-net
     depends_on:
       - dev-api
     profiles: ["dev"]
 
-  # ── DEV: Rust API (no UI dist — just the API server) ─────────────────
+  # ── DEV: Rust gateway API (no UI dist bundled) ────────────────────────
   dev-api:
     build:
       context: .
       dockerfile: Dockerfile
-      target: dev-api # Rust binary only, no dist/
+      target: dev-api # Rust binary only — no dist/
     container_name: finetune-api-dev
     ports:
-      - "8000:8000" # Direct access for debugging: http://localhost:8000/health
+      - "8000:8000" # Direct: http://localhost:8000/health
     env_file:
       - server.env
     environment:
       PORT: "8000"
       DIST_DIR: "./dist" # dist/ won't exist — /api and /health still work
-      RUST_LOG: "debug,lora_studio_server=trace"
-      CORS_ORIGINS: "*" # open in dev
+      RUST_LOG: "debug,finetune_studio_server=trace"
+      CORS_ORIGINS: "*" # open in dev — tighten for prod
     networks:
       - shared-net
     restart: unless-stopped
@@ -133,7 +213,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: final # Rust binary + built dist/
-    container_name: llm-finetune-server
+    container_name: finetune-server
     ports:
       - "8000:8000"
     env_file:
@@ -141,7 +221,7 @@ services:
     environment:
       PORT: "8000"
       DIST_DIR: "./dist"
-      RUST_LOG: "info,lora_studio_server=debug"
+      RUST_LOG: "info,finetune_studio_server=debug"
     networks:
       - shared-net
     restart: unless-stopped

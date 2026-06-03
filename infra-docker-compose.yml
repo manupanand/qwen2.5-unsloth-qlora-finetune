@@ -57,7 +57,7 @@ services:
 
   redis:
     image: redis:7.2-alpine
-    container_name: lora-redis
+    container_name: finetune-redis
     entrypoint: >
       sh -c "redis-server
       --requirepass $$REDIS_PASSWORD
@@ -86,7 +86,7 @@ services:
 
   qdrant:
     image: qdrant/qdrant:v1.9.2
-    container_name: lora-qdrant
+    container_name: finetune-qdrant
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -111,7 +111,7 @@ services:
 
   minio:
     image: minio/minio:RELEASE.2024-06-13T22-53-53Z
-    container_name: lora-minio
+    container_name: finetune-minio
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -143,7 +143,7 @@ services:
     build:
       context: ./postgres-init
       dockerfile: Dockerfile
-    container_name: lora-postgres-init
+    container_name: finetune-postgres-init
     env_file: infra.env
     environment:
       PG_HOST: "${PG_HOST}"
@@ -163,10 +163,10 @@ services:
     build:
       context: ./redis-init
       dockerfile: Dockerfile
-    container_name: lora-redis-init
+    container_name: finetune-redis-init
     env_file: infra.env
     environment:
-      REDIS_HOST: lora-redis
+      REDIS_HOST: finetune-redis
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "${REDIS_PASSWORD}"
     networks:
@@ -178,10 +178,10 @@ services:
     build:
       context: ./qdrant-init
       dockerfile: Dockerfile
-    container_name: lora-qdrant-init
+    container_name: finetune-qdrant-init
     env_file: infra.env
     environment:
-      QDRANT_HOST: lora-qdrant
+      QDRANT_HOST: finetune-qdrant
       QDRANT_PORT: "6333"
       QDRANT_API_KEY: "${QDRANT_API_KEY}"
     networks:
@@ -193,10 +193,10 @@ services:
     build:
       context: ./minio-init
       dockerfile: Dockerfile
-    container_name: lora-minio-init
+    container_name: finetune-minio-init
     env_file: infra.env
     environment:
-      MINIO_ENDPOINT: http://lora-minio:9000
+      MINIO_ENDPOINT: http://finetune-minio:9000
       MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
       MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
       BUCKET_DATASETS: "${MINIO_BUCKET_DATASETS}"

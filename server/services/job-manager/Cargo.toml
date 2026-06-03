@@ -1,0 +1,21 @@
+# finetune-studio/server/services/job-manager/Cargo.toml
+# Job manager service — job CRUD, Redis queue push, hyperparameter validation.
+# Binary: job_manager  |  Port: 8001
+[package]
+name    = "job-manager"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "job_manager"
+path = "src/main.rs"
+
+[dependencies]
+shared     = { workspace = true }
+axum       = { workspace = true }
+tokio      = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+dotenvy    = { workspace = true }
+tracing    = { workspace = true }
+tracing-subscriber = { workspace = true }

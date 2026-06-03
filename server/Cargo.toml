@@ -1,25 +1,58 @@
-[package]
-name = "finetune-studio-server"
-version = "0.1.0"
-edition = "2021"
+# finetune-studio/server/Cargo.toml
+# Workspace root — defines all workspace members and shared dependency versions.
+# Run: cargo build --release -p gateway  (from this directory)
 
-[[bin]]
-name = "server"
-path = "src/main.rs"
+[workspace]
+members = [
+    "shared",
+    "services/gateway",
+    "services/job-manager",
+    "services/stream-service",
+    "services/model-registry",
+    "services/storage-service",
+]
+resolver = "2"
 
-[dependencies]
-axum = { version = "0.7", features = ["tokio"] }
-tokio = { version = "1", features = ["full"] }
-tower = "0.4"
-tower-http = { version = "0.5", features = ["fs", "trace", "cors"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-dotenvy = "0.15"
+# ── Shared dependency versions across all crates ─────────────────────
+[workspace.dependencies]
+# Web
+axum            = { version = "0.7", features = ["tokio", "multipart"] }
+tokio           = { version = "1",   features = ["full"] }
+tower           = "0.4"
+tower-http      = { version = "0.5", features = ["fs", "trace", "cors"] }
+hyper           = { version = "1",   features = ["full"] }
 
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-strip = true
+# Database
+sqlx            = { version = "0.7", features = ["postgres", "uuid", "chrono", "runtime-tokio", "migrate"] }
+
+# Redis
+redis           = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
+
+# Serialization
+serde           = { version = "1",   features = ["derive"] }
+serde_json      = "1"
+
+# Auth
+jsonwebtoken    = "9"
+bcrypt          = "0.15"
+oauth2          = "4"
+
+# Storage (MinIO / S3)
+aws-sdk-s3      = { version = "1",   features = ["behavior-version-latest"] }
+aws-config      = "1"
+
+# Utils
+uuid            = { version = "1",   features = ["v4", "serde"] }
+chrono          = { version = "0.4", features = ["serde"] }
+dotenvy         = "0.15"
+thiserror       = "1"
+anyhow          = "1"
+validator       = { version = "0.18", features = ["derive"] }
+reqwest         = { version = "0.11", features = ["json"] }
+
+# Tracing
+tracing              = "0.1"
+tracing-subscriber   = { version = "0.3", features = ["env-filter"] }
+
+# Shared internal crate
+shared          = { path = "shared" }

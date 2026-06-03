@@ -1,0 +1,21 @@
+# finetune-studio/server/services/model-registry/Cargo.toml
+# Model registry service — model discovery, adapter CRUD, MLflow integration.
+# Binary: model_registry  |  Port: 8003
+[package]
+name    = "model-registry"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "model_registry"
+path = "src/main.rs"
+
+[dependencies]
+shared     = { workspace = true }
+axum       = { workspace = true }
+tokio      = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+dotenvy    = { workspace = true }
+tracing    = { workspace = true }
+tracing-subscriber = { workspace = true }

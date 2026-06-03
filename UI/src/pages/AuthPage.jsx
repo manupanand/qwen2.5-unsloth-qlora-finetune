@@ -217,24 +217,60 @@ export default function AuthPage({ onAuth, theme, onToggleTheme }) {
     return Object.keys(e).length === 0;
   };
 
-  // ── Submit handlers ──────────────────────────────────────────────
+  // ── API helper ───────────────────────────────────────────────────
+  const apiCall = async (path, body) => {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || `Request failed (${res.status})`);
+    }
+    return data;
+  };
+
+  // ── Submit handlers ───────────────────────────────────────────────
   const handleSignIn = async () => {
     if (!validateSignIn()) return;
     setLoading(true);
-    // Placeholder — replace with real API call in Phase 2
-    await new Promise((r) => setTimeout(r, 900));
-    setLoading(false);
-    onAuth({ email: siEmail, name: siEmail.split("@")[0] });
+    setSiErrors({});
+    try {
+      const data = await apiCall("/api/v1/auth/login", {
+        email: siEmail.trim(),
+        password: siPwd,
+      });
+      // Store JWT for subsequent API calls
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("refresh_token", data.refresh_token);
+      onAuth(data.user);
+    } catch (err) {
+      setSiErrors({ api: err.message });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignUp = async () => {
     if (!validateSignUp()) return;
     setLoading(true);
-    // Placeholder — replace with real API call in Phase 2
-    await new Promise((r) => setTimeout(r, 900));
-    setLoading(false);
-    setSuccess("Account created! Signing you in…");
-    setTimeout(() => onAuth({ email: suEmail, name: suName }), 1200);
+    setSuErrors({});
+    try {
+      const data = await apiCall("/api/v1/auth/register", {
+        name: suName.trim(),
+        email: suEmail.trim(),
+        password: suPwd,
+      });
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("refresh_token", data.refresh_token);
+      setSuccess("Account created! Signing you in…");
+      setTimeout(() => onAuth(data.user), 1000);
+    } catch (err) {
+      setSuErrors({ api: err.message });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const isSignIn = mode === "signin";
@@ -463,6 +499,24 @@ export default function AuthPage({ onAuth, theme, onToggleTheme }) {
                   </button>
                 </div>
 
+                {siErrors.api && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "10px 14px",
+                      borderRadius: "var(--radius-md)",
+                      background: "var(--red-dim)",
+                      border: "1px solid rgba(239,68,68,0.25)",
+                      color: "var(--red)",
+                      fontSize: 13,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <AlertCircle size={14} /> {siErrors.api}
+                  </div>
+                )}
                 <button
                   onClick={handleSignIn}
                   disabled={loading}
@@ -536,6 +590,24 @@ export default function AuthPage({ onAuth, theme, onToggleTheme }) {
                   icon={Lock}
                 />
 
+                {suErrors.api && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "10px 14px",
+                      borderRadius: "var(--radius-md)",
+                      background: "var(--red-dim)",
+                      border: "1px solid rgba(239,68,68,0.25)",
+                      color: "var(--red)",
+                      fontSize: 13,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <AlertCircle size={14} /> {suErrors.api}
+                  </div>
+                )}
                 <button
                   onClick={handleSignUp}
                   disabled={loading}
@@ -640,7 +712,7 @@ export default function AuthPage({ onAuth, theme, onToggleTheme }) {
               marginTop: 24,
             }}
           >
-            LLM Fine Tune Studio · Phase 1 UI · Built with Rust + React
+            Finetune Studio · Built with Rust + React
           </p>
         </div>
       </div>

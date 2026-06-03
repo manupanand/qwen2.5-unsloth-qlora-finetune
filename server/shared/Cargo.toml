@@ -1,0 +1,37 @@
+# finetune-studio/server/shared/Cargo.toml
+# Shared library crate — db pool, Redis client, JWT, errors, types.
+# Imported by every service via: shared = { workspace = true }
+
+[package]
+name    = "shared"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web
+axum        = { workspace = true }
+tokio       = { workspace = true }
+
+# DB
+sqlx        = { workspace = true }
+
+# Redis
+redis       = { workspace = true }
+
+# Auth
+jsonwebtoken = { workspace = true }
+bcrypt       = { workspace = true }
+
+# Serde
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+
+# Utils
+uuid        = { workspace = true }
+chrono      = { workspace = true }
+thiserror   = { workspace = true }
+anyhow      = { workspace = true }
+dotenvy     = { workspace = true }
+
+# Tracing
+tracing     = { workspace = true }

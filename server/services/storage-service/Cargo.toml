@@ -1,0 +1,21 @@
+# finetune-studio/server/services/storage-service/Cargo.toml
+# Storage service — MinIO presigned URLs, file upload/download, bucket ops.
+# Binary: storage_service  |  Port: 8004
+[package]
+name    = "storage-service"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "storage_service"
+path = "src/main.rs"
+
+[dependencies]
+shared     = { workspace = true }
+axum       = { workspace = true }
+tokio      = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+dotenvy    = { workspace = true }
+tracing    = { workspace = true }
+tracing-subscriber = { workspace = true }
