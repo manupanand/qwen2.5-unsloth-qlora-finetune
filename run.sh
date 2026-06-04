@@ -44,7 +44,8 @@ docker compose -f infra-docker-compose.yml --env-file infra.env --profile init u
 
 # Dev — starts both Vite and Rust API
 docker compose --profile dev up
-
+docker compose --profile dev up --build #build
+docker compose --profile dev up --build --force-recreate
 # UI:  http://localhost:3000/agent/view/finetune-llm/auth
 # API: http://localhost:8000/health  (direct debug access)
 

@@ -28,3 +28,6 @@ redis       = { workspace = true }
 jsonwebtoken = { workspace = true }
 bcrypt      = { workspace = true }
 validator   = { workspace = true }
+hmac        = { workspace = true }
+sha2        = { workspace = true }
+hex         = { workspace = true }

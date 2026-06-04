@@ -55,6 +55,7 @@ fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/health",                     get(health_handler))
         .merge(routes::auth::router())
+        .merge(routes::datasets::router())
         .route("/api/v1/jobs",                get(stub))
         .route("/api/v1/jobs/:id",            get(stub))
         .route("/api/v1/jobs/:id/stream",     get(stub))

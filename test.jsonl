@@ -1,0 +1,3 @@
+{"instruction":"What is LoRA?","output":"LoRA is Low-Rank Adaptation for fine-tuning LLMs."}
+{"instruction":"What is QLoRA?","output":"QLoRA combines 4-bit quantization with LoRA adapters."}
+{"instruction":"What is fine-tuning?","output":"Fine-tuning adapts a pretrained model to a specific task."}

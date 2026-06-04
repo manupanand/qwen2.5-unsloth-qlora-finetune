@@ -54,5 +54,10 @@ reqwest         = { version = "0.11", features = ["json"] }
 tracing              = "0.1"
 tracing-subscriber   = { version = "0.3", features = ["env-filter"] }
 
+# Crypto (for presigned URLs)
+hmac            = "0.12"
+sha2            = "0.10"
+hex             = "0.4"
+
 # Shared internal crate
 shared          = { path = "shared" }
