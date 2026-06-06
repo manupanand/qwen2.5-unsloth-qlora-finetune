@@ -567,6 +567,7 @@ export default function ModelPage({ job, setJob, onNext, onBack }) {
   const [apiModels, setApiModels] = useState([]);
   const [apiStatus, setApiStatus] = useState("idle"); // idle | loading | ok | error
   const [apiError, setApiError] = useState("");
+  const [scanPaths, setScanPaths] = useState([]);
   const [models, setModels] = useState(BUILTIN_MODELS);
 
   // Local tab state
@@ -577,8 +578,10 @@ export default function ModelPage({ job, setJob, onNext, onBack }) {
     setApiStatus("loading");
     setApiError("");
     try {
+      const token = localStorage.getItem("access_token");
       const res = await fetch(`${API_BASE}/api/v1/models`, {
         signal: AbortSignal.timeout(5000),
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
@@ -596,8 +599,9 @@ export default function ModelPage({ job, setJob, onNext, onBack }) {
         icon: HardDrive,
         source: "api",
       }));
+      setScanPaths(data.scan_paths || []);
       setApiModels(fetched);
-      // Merge: API models first, then builtins not already covered
+      // Merge: local models first, then builtins not already covered
       const apiIds = new Set(fetched.map((m) => m.id));
       const merged = [
         ...fetched,
@@ -707,7 +711,7 @@ export default function ModelPage({ job, setJob, onNext, onBack }) {
               {apiStatus === "loading" &&
                 "Checking server for available models…"}
               {apiStatus === "ok" &&
-                `${apiModels.length} model${apiModels.length !== 1 ? "s" : ""} found on server · ${BUILTIN_MODELS.length} built-in defaults`}
+                `${apiModels.length} local model${apiModels.length !== 1 ? "s" : ""} found · ${BUILTIN_MODELS.length} built-in defaults · scanning: ${scanPaths.join(", ") || "default paths"}`}
               {apiStatus === "error" && `Backend offline — ${apiError}`}
               {apiStatus === "idle" && "Connecting to backend…"}
             </span>

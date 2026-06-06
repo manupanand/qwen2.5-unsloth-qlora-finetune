@@ -1,7 +1,7 @@
 // finetune-studio/server/services/gateway/src/routes/datasets.rs
 use axum::{
     Router,
-    routing::{delete, get, patch, post},
+    routing::{get, post},
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     Json,
@@ -296,7 +296,7 @@ async fn multipart_complete(
 async fn multipart_abort(
     State(state): State<AppState>,
     headers:      HeaderMap,
-    Json(body):   Json<serde_json::Value>,
+    Json(_body):  Json<serde_json::Value>,
 ) -> AppResult<Json<serde_json::Value>> {
     let uid = auth_uid(&state, &headers).await?;
     tracing::info!("Multipart aborted: user={}", uid);

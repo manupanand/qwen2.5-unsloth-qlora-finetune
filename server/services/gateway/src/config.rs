@@ -13,6 +13,7 @@ pub struct Config {
     pub jwt_expiry_secs:         u64,
     pub refresh_expiry_secs:     u64,
     // ── Storage (MinIO) ──────────────────────────────────────────
+    pub redis_url:               String,
     pub storage_endpoint:        String,
     pub storage_access_key:      String,
     pub storage_secret_key:      String,
@@ -21,7 +22,7 @@ pub struct Config {
     pub storage_public_url:      String,  // public URL for presigned URLs (browser/curl accessible)
     // ── Other ────────────────────────────────────────────────────
     pub llm_endpoint:            String,
-    pub model_storage_path:      String,
+    pub model_storage_paths:     String,  // comma-separated paths to scan
 }
 
 impl Config {
@@ -35,6 +36,7 @@ impl Config {
             jwt_secret:              env_required("JWT_SECRET"),
             jwt_expiry_secs:         env_u64("JWT_EXPIRY_SECS", 3600),
             refresh_expiry_secs:     env_u64("REFRESH_EXPIRY_SECS", 604800),
+            redis_url:               env_required("REDIS_URL"),
             storage_endpoint:        env_str("STORAGE_ENDPOINT",        "http://finetune-minio:9000"),
             storage_access_key:      env_str("STORAGE_ACCESS_KEY",      "minioadmin"),
             storage_secret_key:      env_str("STORAGE_SECRET_KEY",      ""),
@@ -42,7 +44,7 @@ impl Config {
             storage_region:          env_str("STORAGE_REGION",          "us-east-1"),
             storage_public_url:      env_str("STORAGE_PUBLIC_URL",     "http://localhost:9000"),
             llm_endpoint:            env_str("LLM_ENDPOINT",            "http://localhost:11434"),
-            model_storage_path:      env_str("MODEL_STORAGE_PATH",      "./models"),
+            model_storage_paths:     env_str("MODEL_STORAGE_PATHS",     "/models,./models"),
         }
     }
 

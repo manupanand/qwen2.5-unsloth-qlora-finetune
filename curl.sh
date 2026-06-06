@@ -128,3 +128,85 @@ curl -X POST http://localhost:8000/api/v1/datasets \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d "{\"object_key\":\"$OBJECT_KEY\",\"file_name\":\"test.jsonl\",\"file_size\":180,\"format\":\"jsonl\",\"dataset_name\":\"Test upload\",\"row_count\":3}"
+
+
+# --- model
+-- model
+
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"manu@gmail.com","password":"test@EMAIL"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# Models
+curl http://localhost:8000/api/v1/models \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+
+# Create job
+curl -X POST http://localhost:8000/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "dataset_id": "<your-dataset-uuid>",
+    "base_model": "mistral-7b",
+    "method": "lora",
+    "hyperparams": {"learning_rate":0.0002,"epochs":3,"batch_size":4},
+    "method_cfg":  {"lora_rank":16,"lora_alpha":32}
+  }'
+
+# Get your dataset UUID first
+curl http://localhost:8000/api/v1/datasets \
+  -H "Authorization: Bearer $TOKEN" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['datasets'][0]['id'])"
+  # 1. Register new user (fresh DB)
+  curl -X POST http://localhost:8000/api/v1/auth/register \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Manu","email":"manu@gmail.com","password":"test@EMAIL"}'
+
+  # 2. Login and store token
+  TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"manu@gmail.com","password":"test@EMAIL"}' \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+  echo $TOKEN
+----
+# Quick test dataset via confirm endpoint
+DATASET_ID=$(curl -s -X POST http://localhost:8000/api/v1/datasets \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"object_key":"test/test.jsonl","file_name":"test.jsonl","file_size":180,"format":"jsonl","dataset_name":"Test dataset"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+
+echo "Dataset ID: $DATASET_ID"
+
+# Create job
+curl -X POST http://localhost:8000/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d "{
+    \"dataset_id\": \"$DATASET_ID\",
+    \"base_model\": \"mistral-7b\",
+    \"method\": \"lora\",
+    \"hyperparams\": {\"learning_rate\":0.0002,\"epochs\":3,\"batch_size\":4},
+    \"method_cfg\":  {\"lora_rank\":16,\"lora_alpha\":32}
+  }"
+  ---
+# List jobs
+curl http://localhost:8000/api/v1/jobs \
+  -H "Authorization: Bearer $TOKEN"
+
+# SSE stream (keep open — will receive events when worker runs)
+curl -N http://localhost:8000/api/v1/jobs/<job-id>/stream \
+  -H "Authorization: Bearer $TOKEN"
+
+# List jobs
+curl http://localhost:8000/api/v1/jobs \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+
+# SSE stream — keep terminal open, shows ping every 15s
+JOB_ID="f0490b50-384e-49f0-b3b5-ca3236112743"
+curl -N "http://localhost:8000/api/v1/jobs/$JOB_ID/stream" \
+  -H "Authorization: Bearer $TOKEN"
+
+docker exec finetune-redis redis-cli -a cacheDBpwd LLEN queue:jobs:lora
+docker exec finetune-redis redis-cli -a cacheDBpwd LRANGE queue:jobs:lora 0 -1

@@ -9,7 +9,7 @@
 
 use axum::{
     Router,
-    routing::{get, post, patch},
+    routing::{get, post},
     extract::State,
     http::{HeaderMap, StatusCode},
     Json,
